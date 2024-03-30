@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <limits.h>
+#include <pwd.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096 // A common maximum path length on many systems
+#endif
 
 #define LSH_RL_BUFSIZE 1024
 #define LSH_TOK_BUFSIZE 64
@@ -108,60 +116,16 @@ int lsh_execute(char **args)
   return lsh_launch(args);
 }
 
-//read line and allocate buffer
+//readline implementation updated to use readline library for command history
 char *lsh_read_line(void)
 {
-    int bufsize = LSH_RL_BUFSIZE;
-    int position = 0;
-    char *buffer = malloc(sizeof(char) * bufsize);
-    int c;
-
-    if (!buffer) {
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
+  char *line = readline("> ");
+    if (line && *line) {
+        add_history(line);
     }
-    while (1) {
-        // read character
-        c = getchar();
-        //if reach EOF, replace with null and return
-        if (c == EOF || c == '\n') {
-            buffer[position] = '\0';
-            return buffer;
-        } else {
-            buffer[position] = c;
-        }
-        position++;
-        // if buffer full, reallocate
-        if (position >= bufsize) {
-            bufsize += LSH_RL_BUFSIZE;
-            buffer = realloc(buffer, bufsize);
-            if (!buffer) {
-                fprintf(stderr, "lsh: allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
+    return line;
 }
-/* 
-//replaces lsh_read_line() functionality with getline()
 
-char *lsh_read_line(void)
-{
-  char *line = NULL;
-  ssize_t bufsize = 0; // have getline allocate a buffer for us
-
-  if (getline(&line, &bufsize, stdin) == -1){
-    if (feof(stdin)) {
-      exit(EXIT_SUCCESS);  // We recieved an EOF
-    } else  {
-      perror("readline");
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  return line;
-}
-*/
 
 //tokenization of input
 char **lsh_split_line(char *line)
@@ -196,30 +160,52 @@ char **lsh_split_line(char *line)
 }
 
 //command input loop
-void lsh_loop(void)
-{
-
+void lsh_loop(void) {
     char *line;
     char **args;
     int status;
+    char cwd[PATH_MAX]; // Using PATH_MAX for portability
+    char *user;
+    char prompt[PATH_MAX + 50]; // Ensure buffer is large enough for prompt
 
     do {
-        //accept input
-        printf("> ");
-        //read line function
-        line = lsh_read_line();
-        //split line into args
+        // Get current working directory
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            perror("lsh");
+            exit(EXIT_FAILURE);
+        }
+
+        // Get username
+        user = getenv("USER");
+        if (user == NULL) {
+            struct passwd *pw = getpwuid(getuid());
+            if (pw == NULL) {
+                perror("lsh: unable to fetch username");
+                exit(EXIT_FAILURE);
+            }
+            user = pw->pw_name;
+        }
+
+        // Construct and display prompt
+        snprintf(prompt, sizeof(prompt), "[%s@%s]$ ", user, cwd);
+
+        // Read line from user input using readline
+        line = readline(prompt);
+        if (line && *line) {
+            add_history(line); // Add the line to history only if it's not empty
+        }
+
+        // Split line into args
         args = lsh_split_line(line);
-        //execute command
+        
+        // Execute command
         status = lsh_execute(args);
-        //free memory
+
+        // Free memory
         free(line);
         free(args);
-        }   while (status);
+    } while (status);
 }
-
-
-
 
 //main loop
 int main(int argc, char **argv)
