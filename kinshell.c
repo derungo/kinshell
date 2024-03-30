@@ -5,11 +5,12 @@
 #include <string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <limits.h>
+#include <limits.h> //this was supposed to be for PATH_MAX but it wasn't working for some reason
 #include <pwd.h>
 
+//added manual def of PATH_MAX
 #ifndef PATH_MAX
-#define PATH_MAX 4096 // A common maximum path length on many systems
+#define PATH_MAX 4096 
 #endif
 
 #define LSH_RL_BUFSIZE 1024
@@ -167,6 +168,12 @@ void lsh_loop(void) {
     char cwd[PATH_MAX]; // Using PATH_MAX for portability
     char *user;
     char prompt[PATH_MAX + 50]; // Ensure buffer is large enough for prompt
+    char hostname[1024]; // hostname buffer
+    char *home_directory;
+    char *relative_path;
+
+    hostname[1023] = '\0'; // Ensure null termination
+    gethostname(hostname, 1023); // Get the hostname
 
     do {
         // Get current working directory
@@ -185,9 +192,30 @@ void lsh_loop(void) {
             }
             user = pw->pw_name;
         }
+        // attempt to abbreviate home directory
+        home_directory = getenv("HOME");
+        if (home_directory && strncmp(cwd, home_directory, strlen(home_directory)) == 0) {
+            // If cwd contains the home directory, replace it with '~' for abbreviation
+            int len = strlen(cwd) - strlen(home_directory) + 2; 
+            relative_path = malloc(len);
+            if (relative_path == NULL) {
+                perror("lsh: unable to allocate memory");
+                exit(EXIT_FAILURE);
+            }
+            //relative path starts with ~
+            snprintf(relative_path, len, "~%s", cwd + strlen(home_directory));
+        } else {
+            // Allocate and copy the cwd as is if it doesn't start with home_director
+            relative_path = strdup(cwd);
+            if(relative_path == NULL) {
+              perror("lsh: unable to allocate memory");
+              exit(EXIT_FAILURE);
+            }
+        }
+
 
         // Construct and display prompt
-        snprintf(prompt, sizeof(prompt), "[%s@%s]$ ", user, cwd);
+        snprintf(prompt, sizeof(prompt), "[%s@%s]-[%s] $ ", user, hostname, relative_path);
 
         // Read line from user input using readline
         line = readline(prompt);
@@ -204,6 +232,7 @@ void lsh_loop(void) {
         // Free memory
         free(line);
         free(args);
+        free(relative_path);
     } while (status);
 }
 
