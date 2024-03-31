@@ -7,6 +7,7 @@
 #include <readline/history.h>
 #include <limits.h> //this was supposed to be for PATH_MAX but it wasn't working for some reason
 #include <pwd.h>
+#include <glob.h>
 
 //added manual def of PATH_MAX
 #ifndef PATH_MAX
@@ -26,7 +27,8 @@ int lsh_exit(char **args);
 char *builtin_str[] = {
   "cd",
   "help",
-  "exit"
+  "exit",
+  NULL
 };
 
 int (*builtin_func[]) (char **) = {
@@ -71,6 +73,95 @@ int lsh_exit(char **args)
 {
   return 0;
 }
+//utility func for determing context of input
+int determine_completion_context(const char* text, int start){
+  //if start index is 0, likely command
+  if(start == 0){
+    return 1;
+  }
+  //if last char before current pos is space, likely arg
+  if (start > 1 && text[start - 1] == ' ') {
+    return 2;
+  }
+  //default filename
+  return 3;
+  }
+//filename tab completion
+char* filename_completion_generator(const char* text, int state) {
+  static glob_t glob_result;
+  static int list_index;
+
+  if(!state){
+    //prepare pattern for glob
+    char pattern[PATH_MAX];
+    snprintf(pattern, sizeof(pattern), "%s", text);
+    glob(pattern, GLOB_TILDE, NULL, &glob_result);
+    list_index = 0;
+  }
+
+  if(list_index >= glob_result.gl_pathc){
+    globfree(&glob_result);
+    return NULL;
+  } else {
+    return strdup(glob_result.gl_pathv[list_index++]);
+      }
+
+}
+//tab builtin command completeion function
+char* completion_generator(const char* text, int state) {
+  
+  //static vars to hold state across function calls
+  static int list_index, len;
+  char *name;
+  //if new word, init state
+  if (!state) {
+    list_index = 0;
+    len = strlen(text);
+  }
+  //return next name in list
+  while ((name = builtin_str[list_index++]) !=NULL) {
+    if (strncmp(name, text, len) == 0) {
+      return name;
+    }
+  }
+  return NULL;
+}
+//arg completion function
+char* arg_completion_generator(const char* text, int state) {
+ static int list_index, len;
+ const char *args[] = {"on", "off", NULL};
+ const char *name;
+ 
+ if(!state){
+   list_index = 0;
+   len = strlen(text);
+ }
+ 
+ while((name = args[list_index++]) != NULL){
+   if(strncmp(name, text, len) == 0){
+     return strdup(name);
+   }
+ }
+   return NULL;
+}
+//completion entrypoint
+char** shell_completion(const char* text, int start, int end) {
+    rl_attempted_completion_over = 1;
+    int context = determine_completion_context(rl_line_buffer, rl_point);
+
+    switch(context){
+    case 1:
+      return rl_completion_matches(text, completion_generator);
+    case 2:
+      return rl_completion_matches(text, arg_completion_generator);
+    default:
+      return rl_completion_matches(text, filename_completion_generator);
+}
+}
+void initialize_readline(void) {
+  rl_readline_name = "Kinshell";
+  rl_attempted_completion_function = shell_completion;
+  }
 
 //command execution via fork and exec 
 int lsh_launch(char **args)
@@ -103,16 +194,16 @@ int lsh_execute(char **args)
 {
   int i;
 
-  if (args[0] == NULL) {
+  if (args[0] == NULL || builtin_str == NULL) {
     // An empty command was entered.
     return 1;
   }
 
-  for (i = 0; i < lsh_num_builtins(); i++) {
-    if (strcmp(args[0], builtin_str[i]) == 0) {
-      return (*builtin_func[i])(args);
+   for (int i = 0; builtin_str[i] != NULL; i++) {
+        if (strcmp(args[0], builtin_str[i]) == 0) {
+            return (*builtin_func[i])(args);
+        }
     }
-  }
 
   return lsh_launch(args);
 }
@@ -239,8 +330,9 @@ void lsh_loop(void) {
 //main loop
 int main(int argc, char **argv)
 {
-//load config files
-//run command loop
+//call readline
+initialize_readline();
+//call command loop
 lsh_loop();
 //shutdown/cleanup
 return EXIT_SUCCESS;
