@@ -1,0 +1,6 @@
+kinshell.o
+builtin.o
+parse.o
+execute.o
+completion.o
+shellloop.o

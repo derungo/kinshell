@@ -26,6 +26,7 @@ char *builtin_str[] = {
   "cd",
   "help",
   "exit",
+  "history",
   NULL
 };
 
@@ -33,7 +34,8 @@ char *builtin_str[] = {
 int (*builtin_func[]) (char **) = {
   &ksh_cd,
   &ksh_help,
-  &ksh_exit
+  &ksh_exit,
+  &ksh_history
 };
 //returns number of builtins
 int ksh_num_builtins() {

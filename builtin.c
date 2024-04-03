@@ -3,6 +3,8 @@
 #include <string.h> // For string operations. While not explicitly used in this snippet, often needed for command parsing and comparison.
 #include <unistd.h> // For POSIX API, e.g., chdir() used in the cd command implementation.
 #include "builtin.h"
+#include <readline/readline.h>
+#include <readline/history.h>
 
 extern char *builtin_str[]; // Use the array from another file
 extern int ksh_num_builtins(); // Use the function from another file
@@ -38,4 +40,16 @@ int ksh_help(char **args)
 int ksh_exit(char **args)
 {
   return 0;
+}
+//history implementation
+int ksh_history(char **args)
+{
+  HIST_ENTRY **the_history_list = history_list();
+
+  if (the_history_list) {
+  for (int i = 0; the_history_list[i]; i++) {
+    printf("%d: %s\n", i + history_base, the_history_list[i]->line);
+    }
+  }
+  return 1;
 }
