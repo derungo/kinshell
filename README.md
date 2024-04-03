@@ -1,2 +1,2 @@
 # kinshell
-lsh implentation
+ksh implentation
