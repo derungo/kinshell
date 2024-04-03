@@ -2,12 +2,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <limits.h> //this was supposed to be for PATH_MAX but it wasn't working for some reason
 #include <pwd.h>
-#include <glob.h>
 
 //added manual def of PATH_MAX
 #ifndef PATH_MAX
@@ -20,6 +17,7 @@
 #include "parse.h"
 #include "execute.h"
 #include "completion.h"
+#include "config.h"
 
 //array of builtins
 char *builtin_str[] = {
@@ -57,8 +55,12 @@ int main(int argc, char **argv)
 {
 //call readline
 initialize_readline();
+//load history
+load_history_file();
 //call command loop
 ksh_loop();
+//call cleanup
+save_history_file(); 
 //shutdown/cleanup
 return EXIT_SUCCESS;
 }

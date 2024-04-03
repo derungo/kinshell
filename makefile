@@ -8,7 +8,7 @@ CFLAGS = -Wall -g
 LDFLAGS = -lreadline
 
 # Source files
-SOURCES = kinshell.c shellloop.c builtin.c parse.c execute.c completion.c
+SOURCES = kinshell.c shellloop.c builtin.c parse.c execute.c completion.c config.c
 
 # Object files
 OBJECTS = $(SOURCES:.c=.o)

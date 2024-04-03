@@ -4,3 +4,4 @@ parse.o
 execute.o
 completion.o
 shellloop.o
+config.o
