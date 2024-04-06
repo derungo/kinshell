@@ -5,3 +5,5 @@ execute.o
 completion.o
 shellloop.o
 config.o
+.vscode/
+kinshell
